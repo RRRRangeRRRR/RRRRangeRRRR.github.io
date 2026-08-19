@@ -1,7 +1,6 @@
 // Configuración
 const API_BASE = 'https://api.guildwars2.com/v2';
 const LANG = 'es';
-const MAX_SEARCH_RESULTS = 500;
 
 // Elementos DOM
 const searchType = document.getElementById('searchType');
@@ -26,40 +25,34 @@ document.querySelectorAll('.example-btn').forEach(btn => {
 });
 
 // ============================================
-// FUNCIONES PRINCIPALES
+// FUNCIÓN PRINCIPAL
 // ============================================
 
 async function handleSearch() {
     const type = searchType.value;
     const query = searchInput.value.trim();
-
+    
     if (!query) {
-        showError('Por favor, introduce un ID o nombre para buscar', '🔍');
+        showError('Por favor, introduce un ID para buscar', '🔍');
         return;
     }
-
+    
+    // Validar que sea un número
+    if (!/^\d+$/.test(query)) {
+        showError('❌ Por favor, introduce solo números (ID numérico)', '⚠️');
+        return;
+    }
+    
     showLoading();
     resultCount.style.display = 'none';
-
+    
     try {
-        let data;
-
-        // Si es número, buscar por ID
-        if (/^\d+$/.test(query)) {
-            data = await fetchById(type, query);
-            if (data) {
-                displayResult(data, type);
-            } else {
-                showError(`No se encontró el ${getTypeName(type)} con ID: ${query}`, '🔍');
-            }
+        const data = await fetchById(type, query);
+        
+        if (data) {
+            displayResult(data, type);
         } else {
-            // Búsqueda por nombre
-            data = await searchByName(type, query);
-            if (data && data.length > 0) {
-                displayResultsList(data, type, query);
-            } else {
-                showError(`No se encontraron ${getTypeName(type)} que coincidan con "${query}"`, '🔍');
-            }
+            showError(`No se encontró el ${getTypeName(type)} con ID: ${query}`, '🔍');
         }
     } catch (error) {
         showError(`Error al conectar con la API: ${error.message}`, '⚠️');
@@ -74,36 +67,13 @@ async function handleSearch() {
 async function fetchById(type, id) {
     const url = `${API_BASE}/${type}/${id}?lang=${LANG}`;
     const response = await fetch(url);
-
+    
     if (!response.ok) {
         if (response.status === 404) return null;
         throw new Error(`HTTP ${response.status}`);
     }
-
+    
     return await response.json();
-}
-
-async function searchByName(type, name) {
-    // Obtener lista de IDs
-    const listUrl = `${API_BASE}/${type}`;
-    const idsResponse = await fetch(listUrl);
-    const allIds = await idsResponse.json();
-
-    // Limitar para no sobrecargar
-    const limitedIds = allIds.slice(0, MAX_SEARCH_RESULTS);
-
-    // Obtener detalles en lote
-    const detailsUrl = `${API_BASE}/${type}?ids=${limitedIds.join(',')}&lang=${LANG}`;
-    const detailsResponse = await fetch(detailsUrl);
-    const items = await detailsResponse.json();
-
-    // Buscar por nombre (case-insensitive)
-    const lowerName = name.toLowerCase();
-    const found = items.filter(item =>
-        item.name && item.name.toLowerCase().includes(lowerName)
-    );
-
-    return found;
 }
 
 // ============================================
@@ -115,29 +85,26 @@ function displayResult(item, type) {
     updateResultCount(1);
 }
 
-function displayResultsList(items, type, query) {
-    const cards = items.map(item => createResultCard(item, type)).join('');
-    results.innerHTML = cards;
-    updateResultCount(items.length);
-}
-
 function createResultCard(item, type) {
-    // Determinar el tipo de objeto
     const typeName = getTypeName(type);
     const iconHtml = getIconHtml(item);
-    const rarityHtml = item.rarity ?
+    const rarityHtml = item.rarity ? 
         `<span class="rarity-badge rarity-${item.rarity}">${item.rarity}</span>` : '';
-
+    
+    const apiUrl = `${API_BASE}/${type}/${item.id}?lang=${LANG}`;
+    
     let html = `
         <div class="result-card">
             <div class="result-header">
-                <div class="result-icon">
+                <div class="result-icon-center">
                     ${iconHtml}
                 </div>
-                <div class="result-title">
+                <div class="result-title-center">
                     <h2>${item.name || 'Sin nombre'}</h2>
                     <div class="id-info">
-                        <span>ID: ${item.id}</span>
+                        ⭐ <a href="${apiUrl}" target="_blank" rel="noopener noreferrer" class="api-link" title="Ver en la API">
+                            ID: ${item.id}
+                        </a>
                         ${rarityHtml}
                         <span>${typeName}</span>
                     </div>
@@ -145,7 +112,39 @@ function createResultCard(item, type) {
             </div>
             <div class="result-body">
     `;
-
+    
+    // URL del icono
+    if (item.icon) {
+        html += `
+            <div class="detail-row icon-url-row">
+                <span class="detail-label">Icono URL:</span>
+                <span class="detail-value icon-url">
+                    <a href="${item.icon}" target="_blank" rel="noopener noreferrer">
+                        ${item.icon}
+                    </a>
+                    <button class="copy-btn" onclick="copyToClipboard('${item.icon}')" title="Copiar URL del icono">
+                        📋
+                    </button>
+                </span>
+            </div>
+        `;
+    }
+    
+    // URL de la API
+    html += `
+        <div class="detail-row api-url-row">
+            <span class="detail-label">API URL:</span>
+            <span class="detail-value api-url">
+                <a href="${apiUrl}" target="_blank" rel="noopener noreferrer">
+                    ${apiUrl}
+                </a>
+                <button class="copy-btn" onclick="copyToClipboard('${apiUrl}')" title="Copiar URL de la API">
+                    📋
+                </button>
+            </span>
+        </div>
+    `;
+    
     // Información común
     html += createDetailRow('Nivel', item.level);
     html += createDetailRow('Tipo', item.type);
@@ -157,7 +156,7 @@ function createResultCard(item, type) {
     html += createDetailRow('Slot', item.slot);
     html += createDetailRow('Arma', item.weapon_type);
     html += createDetailRow('Armadura', item.armor_type);
-
+    
     // Información específica por tipo
     if (type === 'items') {
         html += renderItemDetails(item);
@@ -166,7 +165,7 @@ function createResultCard(item, type) {
     } else if (type === 'traits') {
         html += renderTraitDetails(item);
     }
-
+    
     // Descripción
     if (item.description) {
         html += `
@@ -175,31 +174,31 @@ function createResultCard(item, type) {
             </div>
         `;
     }
-
+    
     // Datos adicionales
     if (item.flags && item.flags.length > 0) {
-        html += createDetailRow('Flags',
+        html += createDetailRow('Flags', 
             item.flags.map(f => `<span class="tag">${f}</span>`).join(' ')
         );
     }
-
+    
     if (item.game_types && item.games && item.games.length > 0) {
-        html += createDetailRow('Modos de juego',
+        html += createDetailRow('Modos de juego', 
             item.games.map(g => `<span class="tag">${g}</span>`).join(' ')
         );
     }
-
+    
     if (item.categories && item.categories.length > 0) {
-        html += createDetailRow('Categorías',
+        html += createDetailRow('Categorías', 
             item.categories.map(c => `<span class="tag">${c}</span>`).join(' ')
         );
     }
-
+    
     html += `
             </div>
         </div>
     `;
-
+    
     return html;
 }
 
@@ -209,17 +208,15 @@ function createResultCard(item, type) {
 
 function renderItemDetails(item) {
     if (!item.details) return '';
-
+    
     const details = item.details;
     let html = '';
-
-    // Estadísticas de objetos
+    
     if (details.stats) {
-        html += createDetailRow('Estadísticas',
+        html += createDetailRow('Estadísticas', 
             `${details.stats.damage || ''} ${details.stats.defense || ''}`
         );
-
-        // Atributos
+        
         if (details.stats.attributes) {
             const attrs = details.stats.attributes;
             const attrList = [];
@@ -233,52 +230,48 @@ function renderItemDetails(item) {
             if (attrs.BoonDuration) attrList.push(`Duración de bendición: ${attrs.BoonDuration}%`);
             if (attrs.CritDamage) attrList.push(`Daño crítico: ${attrs.CritDamage}%`);
             if (attrs.Ferocity) attrList.push(`Ferocidad: ${attrs.Ferocity}`);
-
+            
             if (attrList.length > 0) {
                 html += createDetailRow('Atributos', attrList.join(' • '));
             }
         }
     }
-
-    // Bonificaciones de infusión
+    
     if (details.infusion_upgrade_flags && details.infusion_upgrade_flags.length > 0) {
-        html += createDetailRow('Bonificaciones de infusión',
+        html += createDetailRow('Bonificaciones de infusión', 
             details.infusion_upgrade_flags.join(', ')
         );
     }
-
-    // Ranuras de mejora
+    
     if (details.upgrade_components && details.upgrade_components.length > 0) {
-        html += createDetailRow('Componentes de mejora',
+        html += createDetailRow('Componentes de mejora', 
             details.upgrade_components.join(', ')
         );
     }
-
-    // Sufijo
+    
     if (details.suffix_item_id) {
         html += createDetailRow('Item sufijo', details.suffix_item_id);
     }
-
+    
     return html;
 }
 
 function renderSkillDetails(item) {
     let html = '';
-
-    // Facts de habilidades
+    
     if (item.facts && item.facts.length > 0) {
         html += `<div class="facts-section">`;
         html += `<div class="facts-title">📊 Efectos de la habilidad</div>`;
-
+        
         item.facts.forEach(fact => {
             let value = fact.value || fact.distance || fact.duration || fact.hit_count || fact.targets || '';
             let text = fact.text || fact.description || '';
-
+            
             if (fact.type === 'Buff' || fact.type === 'Condition' || fact.type === 'Effect') {
                 text = fact.status || text;
                 value = `${fact.duration || ''}s`;
             }
-
+            
             html += `
                 <div class="fact-item">
                     <span class="fact-text">${text || fact.type}</span>
@@ -286,82 +279,71 @@ function renderSkillDetails(item) {
                 </div>
             `;
         });
-
+        
         html += `</div>`;
     }
-
-    // Tiempo de recarga
+    
     if (item.cooldown) {
         html += createDetailRow('Recarga', `${item.cooldown}s`);
     }
-
-    // Rango
+    
     if (item.range) {
         html += createDetailRow('Rango', `${item.range}`);
     }
-
-    // Costo de iniciativa (Thief)
+    
     if (item.initiative) {
         html += createDetailRow('Iniciativa', item.initiative);
     }
-
-    // Costo de energía (Revenant)
+    
     if (item.energy) {
         html += createDetailRow('Energía', item.energy);
     }
-
-    // Profesiones
+    
     if (item.professions && item.professions.length > 0) {
-        html += createDetailRow('Profesiones',
+        html += createDetailRow('Profesiones', 
             item.professions.map(p => `<span class="tag">${p}</span>`).join(' ')
         );
     }
-
+    
     return html;
 }
 
 function renderTraitDetails(item) {
     let html = '';
-
-    // Nivel de rasgo
+    
     if (item.tier) {
         html += createDetailRow('Nivel', item.tier);
     }
-
-    // Orden
+    
     if (item.order) {
         html += createDetailRow('Orden', item.order);
     }
-
-    // Profesiones
+    
     if (item.profession) {
         html += createDetailRow('Profesión', item.profession);
     }
-
-    // Especialización
+    
     if (item.specialization) {
         html += createDetailRow('Especialización', item.specialization);
     }
-
-    // Habilidades relacionadas
+    
     if (item.skill_id) {
         html += createDetailRow('Habilidad relacionada', item.skill_id);
     }
-
-    // Facts de rasgos
+    
     if (item.facts && item.facts.length > 0) {
         html += `<div class="facts-section">`;
         html += `<div class="facts-title">📊 Efectos del rasgo</div>`;
-
+        
         item.facts.forEach(fact => {
             let value = fact.value || fact.duration || fact.distance || '';
             let text = fact.text || fact.type || '';
-
+            
             if (fact.type === 'Buff' || fact.type === 'Condition') {
                 text = fact.status || text;
                 value = fact.duration ? `${fact.duration}s` : value;
             }
-
+            
             html += `
                 <div class="fact-item">
                     <span class="fact-text">${text}</span>
@@ -369,10 +351,10 @@ function renderTraitDetails(item) {
                 </div>
             `;
         });
-
+        
         html += `</div>`;
     }
-
+    
     return html;
 }
 
@@ -383,7 +365,7 @@ function renderTraitDetails(item) {
 function createDetailRow(label, value) {
     if (!value && value !== 0) return '';
     if (Array.isArray(value) && value.length === 0) return '';
-
+    
     return `
         <div class="detail-row">
             <span class="detail-label">${label}:</span>
@@ -416,6 +398,47 @@ function updateResultCount(count) {
 }
 
 // ============================================
+// COPIAR AL PORTAPAPELES
+// ============================================
+
+function copyToClipboard(text) {
+    const btn = event.target;
+    const originalText = btn.textContent;
+    
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            btn.textContent = '✅';
+            btn.style.background = 'rgba(0, 255, 0, 0.2)';
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.style.background = '';
+            }, 2000);
+        }).catch(err => {
+            console.error('Error al copiar:', err);
+            fallbackCopy(text);
+        });
+    } else {
+        fallbackCopy(text);
+    }
+}
+
+function fallbackCopy(text) {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-9999px';
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+        document.execCommand('copy');
+        alert('✅ URL copiada al portapapeles');
+    } catch (err) {
+        alert('❌ No se pudo copiar. Selecciona la URL manualmente.');
+    }
+    document.body.removeChild(textArea);
+}
+
+// ============================================
 // ESTADOS DE LA UI
 // ============================================
 
@@ -431,17 +454,4 @@ function showLoading() {
 function showError(message, icon = '❌') {
     results.innerHTML = `
         <div class="error">
-            <div class="error-icon">${icon}</div>
-            <p>${message}</p>
-        </div>
-    `;
-    resultCount.style.display = 'none';
-}
-
-// ============================================
-// INICIALIZACIÓN
-// ============================================
-
-// Mensaje de bienvenida ya está en HTML
-console.log('⚔️ GW2 Explorer cargado correctamente');
-console.log('💡 Busca objetos, habilidades o rasgos de Guild Wars 2');
+            <div class="error-icon">${icon}</
