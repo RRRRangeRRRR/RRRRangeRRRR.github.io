@@ -49,7 +49,7 @@ async function handleSearch() {
     try {
         const data = await fetchById(type, query);
         
-        if (data) {
+        if (data && data.id) {
             displayResult(data, type);
         } else {
             showError(`No se encontró el ${getTypeName(type)} con ID: ${query}`, '🔍');
@@ -115,6 +115,8 @@ function createResultCard(item, type) {
     
     // URL del icono
     if (item.icon) {
+        // Escapar comillas para el onclick
+        const escapedIcon = item.icon.replace(/'/g, "\\'");
         html += `
             <div class="detail-row icon-url-row">
                 <span class="detail-label">Icono URL:</span>
@@ -122,7 +124,7 @@ function createResultCard(item, type) {
                     <a href="${item.icon}" target="_blank" rel="noopener noreferrer">
                         ${item.icon}
                     </a>
-                    <button class="copy-btn" onclick="copyToClipboard('${item.icon}')" title="Copiar URL del icono">
+                    <button class="copy-btn" onclick="copyToClipboard('${escapedIcon}')" title="Copiar URL del icono">
                         📋
                     </button>
                 </span>
@@ -131,6 +133,7 @@ function createResultCard(item, type) {
     }
     
     // URL de la API
+    const escapedApiUrl = apiUrl.replace(/'/g, "\\'");
     html += `
         <div class="detail-row api-url-row">
             <span class="detail-label">API URL:</span>
@@ -138,7 +141,7 @@ function createResultCard(item, type) {
                 <a href="${apiUrl}" target="_blank" rel="noopener noreferrer">
                     ${apiUrl}
                 </a>
-                <button class="copy-btn" onclick="copyToClipboard('${apiUrl}')" title="Copiar URL de la API">
+                <button class="copy-btn" onclick="copyToClipboard('${escapedApiUrl}')" title="Copiar URL de la API">
                     📋
                 </button>
             </span>
@@ -182,7 +185,7 @@ function createResultCard(item, type) {
         );
     }
     
-    if (item.game_types && item.games && item.games.length > 0) {
+    if (item.games && item.games.length > 0) {
         html += createDetailRow('Modos de juego', 
             item.games.map(g => `<span class="tag">${g}</span>`).join(' ')
         );
@@ -269,7 +272,7 @@ function renderSkillDetails(item) {
             
             if (fact.type === 'Buff' || fact.type === 'Condition' || fact.type === 'Effect') {
                 text = fact.status || text;
-                value = `${fact.duration || ''}s`;
+                value = fact.duration ? `${fact.duration}s` : value;
             }
             
             html += `
@@ -402,7 +405,8 @@ function updateResultCount(count) {
 // ============================================
 
 function copyToClipboard(text) {
-    const btn = event.target;
+    // Buscar el botón que activó el evento
+    const btn = event ? event.target : document.activeElement;
     const originalText = btn.textContent;
     
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -454,4 +458,9 @@ function showLoading() {
 function showError(message, icon = '❌') {
     results.innerHTML = `
         <div class="error">
-            <div class="error-icon">${icon}</
+            <div class="error-icon">${icon}</div>
+            <p>${message}</p>
+        </div>
+    `;
+    resultCount.style.display = 'none';
+}
