@@ -3,32 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GW2 API - Consultas</title>
+    <title>GW2 API Explorer - Guild Wars 2</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
-        <h1>⚔️ Guild Wars 2 - API Explorer</h1>
-        
+        <header>
+            <h1>⚔️ Guild Wars 2 Explorer</h1>
+            <p class="subtitle">API de objetos, habilidades y rasgos</p>
+        </header>
+
         <div class="search-section">
             <div class="search-box">
-                <label for="searchType">Tipo de búsqueda:</label>
-                <select id="searchType">
-                    <option value="objects">Objetos (Items)</option>
-                    <option value="skills">Habilidades</option>
-                    <option value="traits">Rasgos</option>
-                </select>
+                <div class="search-group">
+                    <label for="searchType">🔍 Tipo:</label>
+                    <select id="searchType">
+                        <option value="items">Objetos</option>
+                        <option value="skills">Habilidades</option>
+                        <option value="traits">Rasgos</option>
+                    </select>
+                </div>
+
+                <div class="search-group search-input-group">
+                    <label for="searchInput">Buscar:</label>
+                    <input type="text" id="searchInput" placeholder="ID o nombre (ej: 12345, Bastión)">
+                    <button id="searchBtn">Buscar</button>
+                </div>
             </div>
-            
-            <div class="search-box">
-                <label for="searchInput">Buscar (ID o nombre):</label>
-                <input type="text" id="searchInput" placeholder="Ej: 12345, Bastión de la Muerte...">
-                <button id="searchBtn">🔍 Buscar</button>
+
+            <div class="search-tips">
+                <small>💡 Sugerencia: Usa el ID para resultados precisos</small>
+                <small id="resultCount" style="display:none;"></small>
             </div>
         </div>
 
         <div id="results" class="results-container">
-            <p class="hint">🔎 Introduce un ID o nombre para buscar</p>
+            <div class="welcome-message">
+                <div class="welcome-icon">🏹</div>
+                <h2>¡Explora Tyria!</h2>
+                <p>Busca objetos, habilidades o rasgos de Guild Wars 2</p>
+                <div class="examples">
+                    <span>Ejemplos: </span>
+                    <button class="example-btn" data-type="items" data-id="12345">Bastión de la Muerte</button>
+                    <button class="example-btn" data-type="skills" data-id="14479">Meteoro</button>
+                    <button class="example-btn" data-type="traits" data-id="278">Fuerza Vital</button>
+                </div>
+            </div>
         </div>
     </div>
 
